@@ -14,48 +14,24 @@ require 'time'
 require 'fileutils'
 require 'csv'
 require 'mechanize'
+require 'set'
 
 
 OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
 
 
 
-def getCookie(agent, uri)
-	status = Timeout::timeout(30) {
-	 	# Something that should be interrupted if it takes more than 5 seconds...
 
- 	 	pageGetCookie = agent.get(uri,'',nil,
-					{
-					'Accept'=>'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-					'Accept-Encoding'=>'gzip,deflate,sdch',
-					'Accept-Language'=>'en-us,en:q=0.8',
-					'Connection'=>'keep-alive',
-					'Referer'=>'https://www.google.com/',
-					'Host'=>'www.sephora.com', 
-					'User-Agent'=>'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1500.71 Safari/537.36',
-
-					}
-		)
-
-		return pageGetCookie['Set-cookie']
-	}
-end
-
-def getProduct(agent, url)
-		puts "GET: " + url;
-		product = agent.get(url,'',nil)
-			
+def getPage(agent, url)
+		product = agent.get(url,'',nil)		
 		return product
+end
 
+def isOutOfDomain(link)  
+	return  (link.to_s.start_with?('http') || link.to_s.start_with?('https') || link.to_s.include?('www.googletagmanager.com')  || link.to_s.include?('player.vimeo.com') )
 end
 
 
-
-def isOutOfDomain(link)
-
-	return  (link.to_s.start_with?('http') || link.to_s.start_with?('https'))
-		
-end
 
 def blackList(link)
 	blackListDomains = ["https://gocardless.com","https://plus.google.com","https://accounts.google.com/","/en-eu/"]
@@ -70,52 +46,59 @@ def blackList(link)
 end
 
 def isValidLink(link)
-	
 	return !isOutOfDomain(link.to_s) && !$websitesScraped.include?(link.to_s) 
+end
+
+def getHrefAndSrcLinks()
+	return html.xpath('//*[@href]/@href | //*[@src]/@src')
 end
 
 
 def crawlLink(parentLink)
 
-		page = getProduct($agent, parentLink);
+		page = getPage($agent, parentLink);
 		html =  Nokogiri::HTML(page.body)
-		href_links = html.xpath('//*[@href]/@href')
+		src_hrefs = getHrefAndSrcLinks()
 
-		href_links.each do |link|
+		puts "Parentlink to hash->" + parentLink
+		$staticAssets["hashIndex-"+parentLink] = Array.new
+
+		src_hrefs.each do |link|
 
 			if !isValidLink(link)
-
-				puts "This link jumped ==> "+link.to_s 
-			else 
-
-				if link.to_s.end_with?('css') || link.to_s.end_with?('png') || link.to_s.end_with?('js') 
-					puts "Asset link ==> "+link.to_s 
-					$staticAssets << link
-				else 
-					#print $websitesScraped
-					puts "Link to crawl ===> "+ link.to_s
-					$websitesScraped << link.to_s
-					$file << link
-					crawlLink(link)
+				#puts "This link jumped ==> "+link.to_s 
+			elsif  link.to_s =~ /(jpg|jpeg|gif|png|css|js|ico|xml|rss|txt|svg|css)$/
+				
+				if(!$staticAssets["hashIndex-"+parentLink.to_s].include?(link.to_s))
+					$staticAssets["hashIndex-"+parentLink.to_s].push(link.to_s) 
 				end
+			else 
+				#puts "Link to crawl ===> "+ link.to_s
+				$websitesScraped << link.to_s
+				crawlLink(link)
 			end
 		end
-
-		puts $websitesScraped
+		$file.puts $staticAssets
 
 end
 
 
-rootUrl = 'https://gocardless.com/en-eu/'
+#**************************  MAIN FUNCTION ****************************#
+$staticAssets = Hash.new
+rootUrl = 'https://gocardless.com'
 $websitesScraped = Array.new
-$staticAssets = Array.new
 puts 'Launching GoCardless crawler ...'
 $agent = Mechanize.new 
 $file = open('myfile.out', 'w')
 
+begin
+	crawlLink(rootUrl)
+rescue  Mechanize::ResponseCodeError  => ex
+	puts "Status code error"+ ex.response_code
+	$log.info("Status code error->"+ex.response_code)
+end
 
 
-crawlLink(rootUrl)
 
 
 
