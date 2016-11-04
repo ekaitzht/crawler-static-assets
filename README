@@ -1,18 +1,21 @@
 My algorithm works recursively, it starts from the root link and
 the we crawl the links with src attributes and href attributes.
 We will call recursively again to those links that are not out of the domain
-and links that are not static.
+and links that are not static and not pages that have been crawled
+previously.
 
 My main challenge is discovering  how I can know when href or src is
 a static asset I have hardcoded the typical static assets extensions like
-png, jpg, js, css, etc. However I know this not the best approach because is
+png, jpg, js, css, etc. However I know this is not the best approach because is
 not a general solution if we detect new extensions my algorithm is not going
-to detect these static assets.
+to detect these static assets. I was thinking to implement a regexp to detect
+when the link ends with "(\.[a-z]{1,5})$". However I think is better my solution because is preemptive solution and we don't pass statics assets
+that are not real static assets.
 
 As well I have had difficulties to differenciate internal links to externals 
 links for example vimeo videos //player.vimeo.com/video.
 
-My algorithm it was saving static assets in a Hash of Arrays where each
+Note: My algorithm is saving static assets in a Hash of Arrays where each
 hash is the link crawled and the array is all assets that correspond to
-this link at the end of the algorithm I pass this hash myfile.out.
+this link. At the end of the algorithm I pass this hash myfile.out.
 

@@ -23,15 +23,13 @@ OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
 
 
 def getPage(agent, url)
-		product = agent.get(url,'',nil)		
-		return product
+		page = agent.get(url,'',nil)		
+		return Nokogiri::HTML(page.body)
 end
 
 def isOutOfDomain(link)  
 	return  (link.to_s.start_with?('http') || link.to_s.start_with?('https') || link.to_s.include?('www.googletagmanager.com')  || link.to_s.include?('player.vimeo.com') )
 end
-
-
 
 def blackList(link)
 	blackListDomains = ["https://gocardless.com","https://plus.google.com","https://accounts.google.com/","/en-eu/"]
@@ -46,37 +44,40 @@ def blackList(link)
 end
 
 def isValidLink(link)
-	return !isOutOfDomain(link.to_s) && !$websitesScraped.include?(link.to_s) 
+	return !isOutOfDomain(link.to_s) && !$pagesCrawled.include?(link.to_s)  && !(link =~ /^.*\.gocardless\.com/)
 end
 
-def getHrefAndSrcLinks()
+def getHrefAndSrcLinks(html)
 	return html.xpath('//*[@href]/@href | //*[@src]/@src')
 end
 
+def isStaticAsset(link)
+	return link.to_s =~ /(jpg|jpeg|gif|png|css|js|ico|xml|rss|txt|svg|css)$/
+end
+
+#This function adds static asset link to the hash of arrays
+def addToHash(link)
+	$staticAssets["hashIndex-"+parentLink.to_s].push(link.to_s) 
+end
 
 def crawlLink(parentLink)
 
-		page = getPage($agent, parentLink);
-		html =  Nokogiri::HTML(page.body)
-		src_hrefs = getHrefAndSrcLinks()
+		html = getPage($agent, parentLink);
+		src_hrefs = getHrefAndSrcLinks(html)
 
-		puts "Parentlink to hash->" + parentLink
+		#Hash of arrays: each element of the hash is the page crawled and the array is the static assets of that page.
 		$staticAssets["hashIndex-"+parentLink] = Array.new
 
 		src_hrefs.each do |link|
 
 			if !isValidLink(link)
-				#puts "This link jumped ==> "+link.to_s 
-			elsif  link.to_s =~ /(jpg|jpeg|gif|png|css|js|ico|xml|rss|txt|svg|css)$/
-				
-				if(!$staticAssets["hashIndex-"+parentLink.to_s].include?(link.to_s))
-					$staticAssets["hashIndex-"+parentLink.to_s].push(link.to_s) 
-				end
+			elsif isStaticAsset(link)  
+				addToHash(link)
 			else 
-				#puts "Link to crawl ===> "+ link.to_s
-				$websitesScraped << link.to_s
+				$pagesCrawled << link.to_s
 				crawlLink(link)
-			end
+			end 
+
 		end
 		$file.puts $staticAssets
 
@@ -86,10 +87,10 @@ end
 #**************************  MAIN FUNCTION ****************************#
 $staticAssets = Hash.new
 rootUrl = 'https://gocardless.com'
-$websitesScraped = Array.new
-puts 'Launching GoCardless crawler ...'
+$pagesCrawled = Array.new
 $agent = Mechanize.new 
 $file = open('myfile.out', 'w')
+$pagesCrawled << '/'
 
 begin
 	crawlLink(rootUrl)
