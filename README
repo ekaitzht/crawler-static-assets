@@ -19,3 +19,7 @@ Note: My algorithm is saving static assets in a Hash of Arrays where each
 hash is the link crawled and the array is all assets that correspond to
 this link. At the end of the algorithm I pass this hash myfile.out.
 
+I could do a more Object oriented approach but I tought to oversize the solution.
+
+ 
+

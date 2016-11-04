@@ -56,14 +56,16 @@ def creatingHashKey(parentLink)
 		$staticAssets[parentLink.to_s] = Array.new
 end
 
-def areYouAStaticAsset(link)
-
-	if !isValidLink?(link)
-		return false;
-	elsif isStaticAsset?(link) 
+def areYouAStaticAsset?(link)
+	
+	if isStaticAsset?(link) 
 		return true;
+	else 
+		return false;
 	end
 end
+
+
 
 def crawlLink(parentLink)
 
@@ -74,18 +76,20 @@ def crawlLink(parentLink)
 		creatingHashKey(parentLink)
 
 		links.each do |link|
+			
+			if !isValidLink?(link) 
+				next
+			end
 
 			if areYouAStaticAsset?(link)
 				addToHash(parentLink, link)
 			else 
-				puts "To crawl -->"+link.to_s
 				$pagesCrawled << link.to_s
 				crawlLink(link)
 			end 
 
 		end
-		
-
+	
 end
 
 
