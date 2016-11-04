@@ -27,59 +27,60 @@ def getPage(agent, url)
 		return Nokogiri::HTML(page.body)
 end
 
-def isOutOfDomain(link)  
-	return  (link.to_s.start_with?('http') || link.to_s.start_with?('https') || link.to_s.include?('www.googletagmanager.com')  || link.to_s.include?('player.vimeo.com') )
+def isOutOfDomain?(link)  
+	return (link.to_s.start_with?('http') || link.to_s.start_with?('https') || link.to_s.include?('www.googletagmanager.com')  || link.to_s.include?('player.vimeo.com') )
 end
 
-def blackList(link)
-	blackListDomains = ["https://gocardless.com","https://plus.google.com","https://accounts.google.com/","/en-eu/"]
-	forbidden = false
-	blackListDomains.each do |linkBlackList|
-
-		if(link.to_s.start_with?(linkBlackList)) 
-			return true
-		end
-	end
-	return forbidden
+def hasBeenCrawled?(link)
+	return !$pagesCrawled.include?(link.to_s)
 end
 
-def isValidLink(link)
-	return !isOutOfDomain(link.to_s) && !$pagesCrawled.include?(link.to_s)  && !(link =~ /^.*\.gocardless\.com/)
+
+def isValidLink?(link)
+	return !isOutOfDomain?(link.to_s) && hasBeenCrawled?(link)  && !(link =~ /^.*\.gocardless\.com/)
 end
 
 def getHrefAndSrcLinks(html)
 	return html.xpath('//*[@href]/@href | //*[@src]/@src')
 end
 
-def isStaticAsset(link)
+def isStaticAsset?(link)
 	return link.to_s =~ /(jpg|jpeg|gif|png|css|js|ico|xml|rss|txt|svg|css)$/
 end
 
 #This function adds static asset link to the hash of arrays
-def addToHash(link)
-	$staticAssets["hashIndex-"+parentLink.to_s].push(link.to_s) 
+def addToHash(parentLink, link)
+
+	$staticAssets[parentLink.to_s].push(link.to_s) 
+end
+
+def creatingHashKey(parentLink)
+		
+		$staticAssets[parentLink.to_s] = Array.new
 end
 
 def crawlLink(parentLink)
 
 		html = getPage($agent, parentLink);
-		src_hrefs = getHrefAndSrcLinks(html)
+		links = getHrefAndSrcLinks(html)
 
 		#Hash of arrays: each element of the hash is the page crawled and the array is the static assets of that page.
-		$staticAssets["hashIndex-"+parentLink] = Array.new
+		creatingHashKey(parentLink)
 
-		src_hrefs.each do |link|
+		links.each do |link|
 
-			if !isValidLink(link)
-			elsif isStaticAsset(link)  
-				addToHash(link)
+			if !isValidLink?(link)
+				#If link is invalid we don't have to dismmiss this link
+			elsif isStaticAsset?(link) 
+				addToHash(parentLink, link)
 			else 
+				puts "To crawl -->"+link.to_s
 				$pagesCrawled << link.to_s
 				crawlLink(link)
 			end 
 
 		end
-		$file.puts $staticAssets
+		
 
 end
 
@@ -94,6 +95,7 @@ $pagesCrawled << '/'
 
 begin
 	crawlLink(rootUrl)
+	$file.puts $staticAssets
 rescue  Mechanize::ResponseCodeError  => ex
 	puts "Status code error"+ ex.response_code
 	$log.info("Status code error->"+ex.response_code)
