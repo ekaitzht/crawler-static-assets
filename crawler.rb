@@ -20,8 +20,6 @@ require 'set'
 OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
 
 
-
-
 def getPage(agent, url)
 		page = agent.get(url,'',nil)		
 		return Nokogiri::HTML(page.body)
@@ -55,8 +53,16 @@ def addToHash(parentLink, link)
 end
 
 def creatingHashKey(parentLink)
-		
 		$staticAssets[parentLink.to_s] = Array.new
+end
+
+def areYouAStaticAsset(link)
+
+	if !isValidLink?(link)
+		return false;
+	elsif isStaticAsset?(link) 
+		return true;
+	end
 end
 
 def crawlLink(parentLink)
@@ -69,9 +75,7 @@ def crawlLink(parentLink)
 
 		links.each do |link|
 
-			if !isValidLink?(link)
-				#If link is invalid we don't have to dismmiss this link
-			elsif isStaticAsset?(link) 
+			if areYouAStaticAsset?(link)
 				addToHash(parentLink, link)
 			else 
 				puts "To crawl -->"+link.to_s
